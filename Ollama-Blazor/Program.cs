@@ -20,7 +20,7 @@ namespace Ollama_Blazor
             var pipeline = new MarkdownPipelineBuilder()
                     .UseAdvancedExtensions()
                     .UseColorCode()
-                    .UseEmojiAndSmiley()
+                    .UseBootstrap()
                     .Build();
 
             builder.Services.AddSingleton(pipeline);
