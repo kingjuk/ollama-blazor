@@ -1,5 +1,7 @@
 # Ollama Blazor Server App
 
+https://miro.medium.com/v2/resize:fit:1100/format:webp/1*loJZouS8KBmblH7GKziVUw.png
+
 ## Overview
 
 This project demonstrates how to set up an Ollama server on AWS with GPU support and integrate it with a .NET Blazor Server application. The Blazor app allows users to interact with AI models hosted on the Ollama server in real-time. The project is designed for offline usage by preloading models into the Docker container.
