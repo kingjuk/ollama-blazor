@@ -1,6 +1,7 @@
 # Ollama Blazor Server App
 
-https://miro.medium.com/v2/resize:fit:1100/format:webp/1*loJZouS8KBmblH7GKziVUw.png
+
+![alt text]([http://url/to/img.png](https://miro.medium.com/v2/resize:fit:1100/format:webp/1*loJZouS8KBmblH7GKziVUw.png))
 
 ## Overview
 
