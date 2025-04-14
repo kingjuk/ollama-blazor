@@ -10,6 +10,8 @@
 @using Microsoft.AspNetCore.Components.Forms
 @using Microsoft.AspNetCore.Components
 ﻿@using Markdig
+@using OllamaSharp.Models
+@using System.Diagnostics
 
 @inject MarkdownPipeline pipeline
 @inject IOllamaApiClient OllamaApiClient
@@ -21,161 +23,118 @@
 
 <PageTitle>Ask AI</PageTitle>
 
-<style>
-    body {
-        background-color: #1a1a1a;
-        color: #f8f9fa;
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    }
+<div class="container">
 
-    .chat-window {
-        background-color: #2c2c2c;
-        padding: 15px;
-        border-radius: 10px;
-        max-height: 60vh;
-        overflow-y: auto;
-        color: #f8f9fa;
-        margin-top: 20px;
-    }
 
-    .input-group {
-        display: flex;
-        align-items: center;
-        width: 100%;
-    }
-
-        .input-group textarea {
-            flex: 1;
-            margin-right: 10px;
-            background-color: #333;
-            color: #f8f9fa;
-            border: 1px solid #555;
-            border-radius: 5px;
-            padding: 10px;
-            font-size: 1rem;
-        }
-
-        .input-group button {
-            flex-shrink: 0;
-            background-color: #007bff;
-            border: none;
-            padding: 10px 15px;
-            border-radius: 5px;
-            color: #f8f9fa;
-            cursor: pointer;
-        }
-
-    select {
-        background-color: #333;
-        color: #f8f9fa;
-        border: 1px solid #555;
-        border-radius: 5px;
-        padding: 5px 10px;
-        width: 100%;
-        margin-bottom: 15px;
-    }
-
-    h1 {
-        color: #f8f9fa;
-    }
-
-    .submit-btn {
-        background-color: #007bff;
-        border: none;
-        padding: 10px 15px;
-        border-radius: 5px;
-        color: #f8f9fa;
-        cursor: pointer;
-        width: 15%;
-    }
-
-        .submit-btn:hover {
-            background-color: #0056b3;
-        }
-</style>
-
-<div class="text-center w-100">
-    <h1>Ask AI</h1>
-</div>
-
-@if (messages.Any())
-{
-    <div class="d-flex flex-column flex-grow w-100">
-        <div class="chat-window">
-            @foreach (var message in messages)
-            {
-                <div class="p-2 mb-2 border-bottom">
-                    <span>@((MarkupString)message)</span>
-                </div>
-            }
-        </div>
+    <div class="text-center w-100">
+        <h1>Ask AI</h1>
     </div>
-}
-
-<div class="d-flex flex-column h-100 justify-content-center align-items-center mt-3">
-    <div class="sticky-top w-100">
-        <select @bind="OllamaApiClient.SelectedModel">
-            <option value="" disabled>Select a model</option>
+    <select @bind="OllamaApiClient.SelectedModel">
+        <option value="" disabled>Select a model</option>
+        @if (AllModels == null || !AllModels.Any())
+        {
+            <option value="" disabled>No models available</option>
+        }
+        else
+        {
             @foreach (var model in AllModels)
             {
-                <option value="@model">@model</option>
+                <option value="@model.Name">@model.Name</option>
             }
-        </select>
-        <div class="d-block p-2">
-            <EditForm Model="userInput" OnSubmit="SendMessage">
-                <div class="input-group mb-3">
-                    <textarea class="form-control" placeholder="Ask AI..." @bind="userInput"></textarea>
-                    <button type="submit" class="submit-btn">Submit</button>
-                </div>
-            </EditForm>
+        }
+
+    </select>
+    @if (messages.Any())
+    {
+        <div class="d-flex flex-column flex-grow w-100">
+            <div class="chat-window">
+                @foreach (var message in messages)
+                {
+                    <div class="p-2 mb-2 border-bottom">
+                        @if (message.Value.Trim() == "<p>AI:</p>")
+                        {
+                            <div class="col-12 text-center">
+                                <div class="spinner-grow text-primary" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                            </div>
+                        }
+                        else
+                        {
+                            <span>@((MarkupString)message)</span>
+                        }
+
+                    </div>
+                }
+            </div>
+        </div>
+    }
+
+    <div class="d-flex flex-column h-100 justify-content-center align-items-center mt-3">
+        <div class="sticky-top w-100">
+            <div class="input-group mb-3">
+                <InputTextArea class="form-control" placeholder="Ask AI..." rows="3" @bind-Value="userInput"></InputTextArea>
+                <button type="submit" class="btn btn-primary" @onclick="SendMessage">Submit <span class="bi bi-send" aria-hidden="true" /></button>
+            </div>
         </div>
     </div>
 </div>
-
 
 
 @code {
-    private string userInput = "";
+    private string userInput { get; set; } = "";
     private List<MarkupString> messages = new List<MarkupString>();
-    private ConversationContext? context = null;
 
-    private string SelectedModel { get; set; } = "";
-    private List<string> AllModels = new();
+    private Model? SelectedModel { get; set; }
+    private IEnumerable<Model>? AllModels { get; set; }
+    private Chat? chat { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Get default model from settings
+        AllModels = await OllamaApiClient.ListLocalModelsAsync();
+        @if (AllModels.Any())
+        {
+            SelectedModel = AllModels.First();
+            OllamaApiClient.SelectedModel = SelectedModel.Name;
+        }
+        chat = new Chat(OllamaApiClient);
+    }
 
     public async Task SendMessage()
     {
+        if (chat == null)
+        {
+            chat = new Chat(OllamaApiClient);
+        }
         if (!string.IsNullOrWhiteSpace(userInput))
         {
             // Add user message
             messages.Add(new MarkupString($"<strong>User:</strong> {Markdown.ToHtml(userInput, pipeline)}"));
 
             // Add initial AI response placeholder
-            var aiResponse = "AI: ";
-            var markupResponse = new MarkupString(Markdown.ToHtml(aiResponse, pipeline));
+            string aiResponse = "AI: ";
+            MarkupString markupResponse = new MarkupString(Markdown.ToHtml(aiResponse, pipeline));
+
             messages.Add(markupResponse);
             StateHasChanged();
 
             // Process AI response and update chat
-            context = await OllamaApiClient.StreamCompletion(userInput, context, stream =>
+            await foreach (var answerToken in chat.SendAsync(userInput))
             {
-                aiResponse += stream.Response;
+                Console.Write(answerToken);
+                aiResponse += answerToken;
                 var formattedResponse = Markdown.ToHtml(aiResponse, pipeline);
                 messages[messages.Count - 1] = new MarkupString(formattedResponse);
 
-                if (stream.Done)
-                {
-                    userInput = "";
-                }
-
                 StateHasChanged();
-            });
+            }
+
+            userInput = "";
+
+            StateHasChanged();
+
         }
     }
 
-    protected override async Task OnInitializedAsync()
-    {
-        // Get default model from settings
-        SelectedModel = _ollamaApiSettings.Value.LLMModel;
-        AllModels = (await OllamaApiClient.ListLocalModels()).Select(x => x.Name).ToList();
-    }
 }
